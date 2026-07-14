@@ -219,12 +219,16 @@ End-to-end boot verified (installed, rebooted, root mounted, logged in):
 
 - Debian trixie + Zabbly kernel + ZFS root (unencrypted) + Incus, Secure Boot off:
   boots from the signed UKI, `rpool/ROOT/debian` mounts as root, `linux-zabbly` is
-  the running kernel, Incus is installed.
+  the running kernel, Incus 7.2 is installed.
+- Debian trixie + Zabbly kernel + ZFS root with **native encryption** + Incus: the
+  dracut `zfs` module prompts for the passphrase in the initramfs, unlocks
+  `rpool/ROOT`, and boots to login.
 
-Implemented and installs cleanly, boot validation in progress:
+Implemented and installs cleanly, further boot validation in progress:
 
-- ZFS native and LUKS encryption, the stock-kernel combinations, Ubuntu (resolute),
-  the non-ZFS filesystems, and Secure Boot with MOK enrollment.
+- ZFS LUKS encryption (shares the proven crypttab/TPM2 path), the stock-kernel
+  combinations, Ubuntu (resolute), the non-ZFS filesystems, and Secure Boot with
+  MOK enrollment.
 
 The Secure Boot + LUKS + TPM2 auto-unlock chain is shared, unchanged, with
 [proxmox-uki-installer](https://github.com/cmspam/proxmox-uki-installer), where it
