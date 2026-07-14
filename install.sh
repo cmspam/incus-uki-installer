@@ -558,13 +558,18 @@ log "entering chroot for stage2"
 if [ -f "$MNT/etc/nsswitch.conf" ]; then
   sed -i 's/^\(hosts:[[:space:]]*\).*/\1files dns/' "$MNT/etc/nsswitch.conf"
 fi
-cp /etc/resolv.conf "$MNT/etc/resolv.conf" 2>/dev/null || true
-# If the live env's resolver is only a local systemd-resolved stub (127.0.0.53),
-# it is not reliably reachable from the chroot (our /run is a fresh tmpfs, so the
-# resolved socket is absent). Add public resolvers as a fallback so package
-# downloads work; a non-loopback resolver already present is left as-is. This
-# only rewrites the chroot's resolv.conf; the installed system gets its own on
-# first boot from systemd-resolved / NetworkManager.
+# The chroot's /etc/resolv.conf is frequently a dangling symlink (Ubuntu points it
+# at /run/systemd/resolve/stub-resolv.conf, which is absent in our fresh tmpfs
+# /run), so writing "through" it silently fails and apt cannot resolve anything.
+# Remove it and write a real file. Prefer resolved's actual upstream servers (the
+# stub at 127.0.0.53 is not reachable from the chroot); fall back to public DNS.
+# The installed system regenerates its own resolv.conf on first boot.
+rm -f "$MNT/etc/resolv.conf"
+if [ -s /run/systemd/resolve/resolv.conf ]; then
+  cp /run/systemd/resolve/resolv.conf "$MNT/etc/resolv.conf"
+else
+  cp -L /etc/resolv.conf "$MNT/etc/resolv.conf" 2>/dev/null || true
+fi
 if ! grep -E '^[[:space:]]*nameserver[[:space:]]+' "$MNT/etc/resolv.conf" 2>/dev/null \
      | grep -qvE 'nameserver[[:space:]]+127\.'; then
   printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\n' > "$MNT/etc/resolv.conf"
