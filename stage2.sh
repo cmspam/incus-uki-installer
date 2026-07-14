@@ -260,14 +260,9 @@ case "$KERNEL" in
   stock)
     if [ "$DISTRO" = ubuntu ]; then
       apt-get install -y -qq linux-generic
-    elif [ "$FS" = zfs ]; then
-      # Debian's contrib zfs-dkms tracks the STOCK trixie kernel; the newer
-      # trixie-backports kernel can outpace it and fail to build. So a ZFS root on
-      # the stock kernel uses trixie's own kernel. (For a newer kernel with ZFS on
-      # Debian, use KERNEL=zabbly, which ships a matched OpenZFS.)
-      apt-get install -y -qq linux-image-amd64 linux-headers-amd64
     else
-      # non-ZFS: take the newer kernel from trixie-backports
+      # Debian: newer kernel from trixie-backports. trixie-backports also carries a
+      # matched OpenZFS (2.4.x), installed below, so a ZFS root builds against it.
       apt-get install -y -qq -t "${SUITE}-backports" linux-image-amd64 linux-headers-amd64
     fi
     ;;
@@ -279,11 +274,27 @@ if [ "$FS" = zfs ]; then
   if [ "$KERNEL" = zabbly ]; then
     apt-get install -y -qq openzfs-zfsutils openzfs-zfs-dkms openzfs-zfs-dracut openzfs-zfs-zed
   elif [ "$DISTRO" = debian ]; then
-    apt-get install -y -qq zfsutils-linux zfs-dkms zfs-dracut zfs-zed
+    # from trixie-backports: OpenZFS 2.4.x matched to the backports kernel above
+    apt-get install -y -qq -t "${SUITE}-backports" zfsutils-linux zfs-dkms zfs-dracut zfs-zed
   else
-    # ubuntu stock: zfs.ko is bundled in linux-modules; only userland + dracut glue
+    # ubuntu stock: zfs.ko is bundled in linux-modules (no DKMS). Ubuntu ships
+    # zfs-initramfs, not zfs-dracut, so install the userland and pull the dracut
+    # 90zfs module FILES from Debian's zfs-dracut deb (download-only; its module
+    # scripts drive zpool/zfs generically and are kernel/version independent).
     apt-get install -y -qq zfsutils-linux zfs-zed
-    apt-get install -y -qq zfs-dracut 2>/dev/null || true
+    if [ ! -d /usr/lib/dracut/modules.d/90zfs ]; then
+      ( cd /tmp
+        url=$(curl -fsSL "http://deb.debian.org/debian/dists/trixie/contrib/binary-amd64/Packages.gz" 2>/dev/null \
+              | zcat 2>/dev/null | awk '/^Filename:.*\/zfs-dracut_/{print $2; exit}')
+        if [ -n "$url" ] && curl -fsSL "http://deb.debian.org/debian/$url" -o zfs-dracut.deb 2>/dev/null; then
+          dpkg-deb --fsys-tarfile zfs-dracut.deb | tar -C / -x --wildcards --no-same-owner \
+            './usr/lib/dracut/modules.d/*zfs*' './usr/lib/dracut-zfs-lib.sh' \
+            './usr/lib/systemd/system/zfs*' './usr/lib/systemd/system-generators/*zfs*' \
+            './usr/lib/modules-load.d/zfs.conf' 2>/dev/null || true
+          rm -f zfs-dracut.deb
+        fi )
+      [ -d /usr/lib/dracut/modules.d/90zfs ] || echo "WARNING: dracut 90zfs module not present (ubuntu stock)"
+    fi
   fi
   # Now that the zfs dracut module (90zfs) + zpool exist, enable them for the
   # initramfs. The final rebuild below bakes zfs.ko + the pool import into the UKI.

@@ -439,17 +439,13 @@ ROOT_DATASET=""
 ROOT_UUID=""
 if [ "$FS" = zfs ]; then
   ROOT_DATASET="${ZPOOL}/ROOT/${DISTRO}"
-  # The pool is created by the LIVE environment's ZFS, but must be importable by
-  # the TARGET's ZFS at boot. If the live ZFS is newer than the target's, an
-  # unconstrained pool enables features the target cannot import (it drops to an
-  # emergency shell). The debian + stock combo installs Debian's contrib ZFS
-  # (an OpenZFS 2.x that can lag a newer live image), so its root pool is capped
-  # to a widely-importable feature set. The 2.4-based targets (zabbly, proxmox,
-  # ubuntu) take the full feature set. Override with ZPOOL_COMPAT (a name from
-  # /usr/share/zfs/compatibility.d, or "off" for all features).
-  if [ -z "${ZPOOL_COMPAT+x}" ]; then
-    if [ "$DISTRO" = debian ] && [ "$KERNEL" = stock ]; then ZPOOL_COMPAT=openzfs-2.2-linux; else ZPOOL_COMPAT=off; fi
-  fi
+  # The pool is created by the LIVE environment's ZFS but must be importable by
+  # the TARGET's ZFS at boot. All supported targets are OpenZFS 2.4.x (zabbly,
+  # proxmox, ubuntu, and debian via trixie-backports), so the full feature set is
+  # fine with a current live image. If you run from a live image whose ZFS is
+  # newer than the target's, cap the pool with ZPOOL_COMPAT (a name from
+  # /usr/share/zfs/compatibility.d, e.g. openzfs-2.2-linux; "off" = all features).
+  ZPOOL_COMPAT="${ZPOOL_COMPAT:-off}"
   compat_opt=""
   [ "$ZPOOL_COMPAT" != off ] && [ -n "$ZPOOL_COMPAT" ] && compat_opt="-o compatibility=$ZPOOL_COMPAT"
   log "create zpool $ZPOOL on $ROOTDEV (enc=$ZFS_ENC, compat=${ZPOOL_COMPAT})"
