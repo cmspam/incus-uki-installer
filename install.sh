@@ -439,9 +439,22 @@ ROOT_DATASET=""
 ROOT_UUID=""
 if [ "$FS" = zfs ]; then
   ROOT_DATASET="${ZPOOL}/ROOT/${DISTRO}"
-  log "create zpool $ZPOOL on $ROOTDEV (enc=$ZFS_ENC)"
+  # The pool is created by the LIVE environment's ZFS, but must be importable by
+  # the TARGET's ZFS at boot. If the live ZFS is newer than the target's, an
+  # unconstrained pool enables features the target cannot import (it drops to an
+  # emergency shell). The debian + stock combo installs Debian's contrib ZFS
+  # (an OpenZFS 2.x that can lag a newer live image), so its root pool is capped
+  # to a widely-importable feature set. The 2.4-based targets (zabbly, proxmox,
+  # ubuntu) take the full feature set. Override with ZPOOL_COMPAT (a name from
+  # /usr/share/zfs/compatibility.d, or "off" for all features).
+  if [ -z "${ZPOOL_COMPAT+x}" ]; then
+    if [ "$DISTRO" = debian ] && [ "$KERNEL" = stock ]; then ZPOOL_COMPAT=openzfs-2.2-linux; else ZPOOL_COMPAT=off; fi
+  fi
+  compat_opt=""
+  [ "$ZPOOL_COMPAT" != off ] && [ -n "$ZPOOL_COMPAT" ] && compat_opt="-o compatibility=$ZPOOL_COMPAT"
+  log "create zpool $ZPOOL on $ROOTDEV (enc=$ZFS_ENC, compat=${ZPOOL_COMPAT})"
   # single-disk root pool; posix ACL + sa xattr are Incus/systemd friendly.
-  zpool create -f \
+  zpool create -f $compat_opt \
     -o ashift=12 -o autotrim=on \
     -O compression=zstd -O acltype=posixacl -O xattr=sa -O dnodesize=auto \
     -O atime=off -O relatime=on -O normalization=formD -O mountpoint=none -O canmount=off \
@@ -537,7 +550,17 @@ chmod +x "$MNT/root/stage2.sh"
 
 # ---------------- 10. bind mounts + chroot ----------------
 log "entering chroot for stage2"
-cp /etc/resolv.conf "$MNT/etc/resolv.conf"
+cp /etc/resolv.conf "$MNT/etc/resolv.conf" 2>/dev/null || true
+# If the live env's resolver is only a local systemd-resolved stub (127.0.0.53),
+# it is not reliably reachable from the chroot (our /run is a fresh tmpfs, so the
+# resolved socket is absent). Add public resolvers as a fallback so package
+# downloads work; a non-loopback resolver already present is left as-is. This
+# only rewrites the chroot's resolv.conf; the installed system gets its own on
+# first boot from systemd-resolved / NetworkManager.
+if ! grep -E '^[[:space:]]*nameserver[[:space:]]+' "$MNT/etc/resolv.conf" 2>/dev/null \
+     | grep -qvE 'nameserver[[:space:]]+127\.'; then
+  printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\n' > "$MNT/etc/resolv.conf"
+fi
 for d in proc sys dev dev/pts; do
   mkdir -p "$MNT/$d"
   mount --rbind "/$d" "$MNT/$d"
