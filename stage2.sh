@@ -260,8 +260,14 @@ case "$KERNEL" in
   stock)
     if [ "$DISTRO" = ubuntu ]; then
       apt-get install -y -qq linux-generic
+    elif [ "$FS" = zfs ]; then
+      # Debian's contrib zfs-dkms tracks the STOCK trixie kernel; the newer
+      # trixie-backports kernel can outpace it and fail to build. So a ZFS root on
+      # the stock kernel uses trixie's own kernel. (For a newer kernel with ZFS on
+      # Debian, use KERNEL=zabbly, which ships a matched OpenZFS.)
+      apt-get install -y -qq linux-image-amd64 linux-headers-amd64
     else
-      # newer kernel from trixie-backports
+      # non-ZFS: take the newer kernel from trixie-backports
       apt-get install -y -qq -t "${SUITE}-backports" linux-image-amd64 linux-headers-amd64
     fi
     ;;

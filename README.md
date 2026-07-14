@@ -36,7 +36,7 @@ makes a durable TPM2 policy and Secure Boot practical.
 | DISTRO | KERNEL | Kernel package | ZFS source |
 |---|---|---|---|
 | `debian` (trixie) | `zabbly` | `linux-zabbly` | `openzfs-zfs-dkms` (Zabbly, DKMS) |
-| `debian` (trixie) | `stock`  | `linux-image-amd64` (trixie-backports) | `zfs-dkms` (Debian contrib, DKMS) |
+| `debian` (trixie) | `stock`  | `linux-image-amd64` (trixie stock for ZFS, trixie-backports otherwise) | `zfs-dkms` (Debian contrib, DKMS) |
 | `ubuntu` (resolute/26.04) | `zabbly` | `linux-zabbly` | `openzfs-zfs-dkms` (Zabbly, DKMS) |
 | `ubuntu` (resolute/26.04) | `stock`  | `linux-generic` | in-archive `zfsutils-linux` (module bundled in `linux-modules`, no DKMS) |
 
@@ -44,6 +44,13 @@ Incus always comes from the Zabbly Incus repository. Where ZFS is built by DKMS,
 the module is compiled once during installation and signed with the MOK, so it
 loads under Secure Boot. Zabbly ZFS is DKMS by design; there is no prebuilt
 Zabbly ZFS kernel module.
+
+For a **newer kernel together with a ZFS root on Debian, use `KERNEL=zabbly`**:
+Zabbly ships an OpenZFS build matched to its kernel. Debian's contrib `zfs-dkms`
+tracks the stock trixie kernel, so the `debian` + `stock` combination installs the
+stock kernel when the root is ZFS (a trixie-backports kernel can be newer than
+contrib ZFS supports and fail to build); it uses the backports kernel only for the
+non-ZFS filesystems.
 
 ## Requirements
 
