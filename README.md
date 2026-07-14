@@ -230,25 +230,27 @@ for every installed kernel (pass a version to do one). Run it after changing
 
 ## Tested configurations
 
-End-to-end boot verified (installed, rebooted, root mounted, logged in):
+Each of these was installed, rebooted on a fresh UEFI VM, and confirmed to boot
+from the signed UKI with the ZFS root imported and mounted (logged in over the
+serial console), Secure Boot off:
 
-- Debian trixie + Zabbly kernel + ZFS root (unencrypted) + Incus, Secure Boot off:
-  boots from the signed UKI, `rpool/ROOT/debian` mounts as root, `linux-zabbly` is
-  the running kernel, Incus 7.2 is installed.
-- Debian trixie + Zabbly kernel + ZFS root with **native encryption** + Incus: the
-  dracut `zfs` module prompts for the passphrase in the initramfs, unlocks
-  `rpool/ROOT`, and boots to login.
+| DISTRO | KERNEL | ZFS root | Notes |
+|---|---|---|---|
+| debian (trixie) | zabbly | `rpool/ROOT/debian`, `7.1.3-zabbly+` | + Incus 7.2 |
+| debian (trixie) | zabbly | native encryption | initramfs passphrase → unlock → login |
+| debian (trixie) | stock | `7.0.13+deb13` (backports) | backports OpenZFS 2.4.x |
+| ubuntu (resolute) | zabbly | `7.1.3-zabbly+` | debootstrapped Ubuntu 26.04 |
+| ubuntu (resolute) | stock | `7.0.0-generic`, bundled `zfs.ko` | no DKMS |
 
-Implemented and installs cleanly, further boot validation in progress:
-
-- ZFS LUKS encryption (shares the proven crypttab/TPM2 path), the stock-kernel
-  combinations, Ubuntu (resolute), the non-ZFS filesystems, and Secure Boot with
-  MOK enrollment.
-
-The Secure Boot + LUKS + TPM2 auto-unlock chain is shared, unchanged, with
+ZFS-on-LUKS was verified by inspection (LUKS2 header, `crypttab` with
+`tpm2-device=auto`, and an initramfs carrying the crypt, tpm2-tss, and zfs modules
+plus the baked-in crypttab). Its unlock path — and the full Secure Boot + LUKS +
+TPM2 auto-unlock chain — is shared, unchanged, with
 [proxmox-uki-installer](https://github.com/cmspam/proxmox-uki-installer), where it
 is validated on real hardware. `testmatrix.sh` exercises the combinations against a
-spare disk on a disposable VM.
+spare disk on a disposable VM. The Secure Boot + MOK path is likewise shared with
+the Proxmox installer (it needs a one-time console confirmation at MokManager and
+so is not part of the unattended matrix).
 
 ## License
 
