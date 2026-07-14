@@ -550,6 +550,14 @@ chmod +x "$MNT/root/stage2.sh"
 
 # ---------------- 10. bind mounts + chroot ----------------
 log "entering chroot for stage2"
+# A debootstrapped Ubuntu ships an nsswitch 'hosts:' line that uses nss-resolve,
+# which errors inside the chroot (systemd-resolved is not running and our /run is
+# a fresh tmpfs), so glibc fails before ever reading resolv.conf and apt cannot
+# resolve hostnames. Point host resolution straight at DNS for the install; the
+# running system still resolves via its own resolver (resolv.conf) afterwards.
+if [ -f "$MNT/etc/nsswitch.conf" ]; then
+  sed -i 's/^\(hosts:[[:space:]]*\).*/\1files dns/' "$MNT/etc/nsswitch.conf"
+fi
 cp /etc/resolv.conf "$MNT/etc/resolv.conf" 2>/dev/null || true
 # If the live env's resolver is only a local systemd-resolved stub (127.0.0.53),
 # it is not reliably reachable from the chroot (our /run is a fresh tmpfs, so the
