@@ -213,6 +213,24 @@ for every installed kernel (pass a version to do one). Run it after changing
 `/etc/kernel/cmdline` or anything under `/etc/dracut.conf.d`. GRUB is not used and
 `/etc/cmdline.d/*` is not read for UKIs; `/etc/kernel/cmdline` is the one source.
 
+## Tested configurations
+
+End-to-end boot verified (installed, rebooted, root mounted, logged in):
+
+- Debian trixie + Zabbly kernel + ZFS root (unencrypted) + Incus, Secure Boot off:
+  boots from the signed UKI, `rpool/ROOT/debian` mounts as root, `linux-zabbly` is
+  the running kernel, Incus is installed.
+
+Implemented and installs cleanly, boot validation in progress:
+
+- ZFS native and LUKS encryption, the stock-kernel combinations, Ubuntu (resolute),
+  the non-ZFS filesystems, and Secure Boot with MOK enrollment.
+
+The Secure Boot + LUKS + TPM2 auto-unlock chain is shared, unchanged, with
+[proxmox-uki-installer](https://github.com/cmspam/proxmox-uki-installer), where it
+is validated on real hardware. `testmatrix.sh` exercises the combinations against a
+spare disk on a disposable VM.
+
 ## License
 
 MIT
