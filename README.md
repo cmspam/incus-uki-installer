@@ -82,6 +82,13 @@ environment with a network connection works; ZFS is not needed in that case.
 A plain Debian live/netinst image does **not** ship ZFS, so it cannot create a
 ZFS root as-is. Use one of the images above for `FS=zfs`.
 
+The root pool is created by the live environment but has to import on the target's
+ZFS at boot. If the live image's ZFS is newer than the target's, the installer caps
+the pool's feature set so it still imports (this matters mainly for `debian` +
+`stock`, whose Debian contrib ZFS can lag a newer live image; `ZPOOL_COMPAT`
+overrides the choice). The 2.4-based targets (zabbly, proxmox, ubuntu) paired with
+a current Ubuntu or Proxmox live image need no capping.
+
 ## Quick start
 
 From the live environment, download both scripts into the same directory and run
@@ -127,6 +134,7 @@ On real hardware use a stable `/dev/disk/by-id/...` path; kernel names such as
 | `FS` | `zfs`, `ext4`, `xfs`, `btrfs` | `zfs` |
 | `ZPOOL` | ZFS pool name (FS=zfs) | `rpool` |
 | `ZFS_ENC` | `none`, `native`, `luks` (FS=zfs) | `none` |
+| `ZPOOL_COMPAT` | pool feature set (a `compatibility.d` name, or `off`) | auto |
 | `INCUS` | `yes`, `no` | `yes` |
 | `INCUS_CHANNEL` | `stable`, `daily`, `lts-6.0`, `lts-7.0` | `stable` |
 | `PART_MODE` | `auto`, `freespace`, `custom` | `auto` |
