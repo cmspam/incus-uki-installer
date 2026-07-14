@@ -558,24 +558,13 @@ log "entering chroot for stage2"
 if [ -f "$MNT/etc/nsswitch.conf" ]; then
   sed -i 's/^\(hosts:[[:space:]]*\).*/\1files dns/' "$MNT/etc/nsswitch.conf"
 fi
-# The chroot's /etc/resolv.conf is frequently a dangling symlink (Ubuntu points it
-# at /run/systemd/resolve/stub-resolv.conf, which is absent in our fresh tmpfs
-# /run), so writing "through" it silently fails and apt cannot resolve anything.
-# Remove it and write a real file, keeping only IPv4 nameservers: the stub at
-# 127.0.0.53 is not reachable from the chroot, and a router-advertised IPv6
-# resolver may be dead even where IPv4 DNS is fine. Fall back to public IPv4 DNS.
-# The installed system regenerates its own resolv.conf on first boot.
+# Copy the live environment's resolver into the chroot. It is often a symlink to
+# a stub under /run (Ubuntu points /etc/resolv.conf at the systemd-resolved stub),
+# which would dangle in our fresh tmpfs /run, so dereference it into a real file.
 rm -f "$MNT/etc/resolv.conf"
-{
-  # search domains from the live resolver, then IPv4 nameservers only
-  grep -hE '^[[:space:]]*(search|domain)[[:space:]]' /run/systemd/resolve/resolv.conf /etc/resolv.conf 2>/dev/null | head -1
-  { cat /run/systemd/resolve/resolv.conf 2>/dev/null; cat /etc/resolv.conf 2>/dev/null; } \
-    | grep -E '^[[:space:]]*nameserver[[:space:]]+[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+[[:space:]]*$' \
-    | grep -vE 'nameserver[[:space:]]+127\.' | sort -u
-} > "$MNT/etc/resolv.conf"
-if ! grep -qE '^[[:space:]]*nameserver[[:space:]]+[0-9]' "$MNT/etc/resolv.conf"; then
-  printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\n' >> "$MNT/etc/resolv.conf"
-fi
+cp -L /etc/resolv.conf "$MNT/etc/resolv.conf" 2>/dev/null \
+  || cp /run/systemd/resolve/resolv.conf "$MNT/etc/resolv.conf" 2>/dev/null \
+  || true
 for d in proc sys dev dev/pts; do
   mkdir -p "$MNT/$d"
   mount --rbind "/$d" "$MNT/$d"
